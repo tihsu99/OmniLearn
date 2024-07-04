@@ -9,15 +9,15 @@ import random
 import itertools
 import pickle, copy
 from scipy.stats import norm
-import horovod.tensorflow.keras as hvd
+#import horovod.tensorflow.keras as hvd
 
 def setup_gpus():
-    hvd.init()
+#    hvd.init()
     gpus = tf.config.experimental.list_physical_devices('GPU')
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
-    if gpus:
-        tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
+#    if gpus:
+#        tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
 
 
 def get_model_name(flags,fine_tune=False,add_string=""):
@@ -642,8 +642,80 @@ class CMSQGDataLoader(DataLoader):
         self.steps_per_epoch = None #will pass none, otherwise needs to add repeat to tf data
         self.files = [path]
 
-        
-    
+
+
+class DelphesDataLoader(DataLoader):
+    def __init__(self, path, batch_size=512,rank=0,size=1):
+        super().__init__(path, batch_size, rank, size)
+
+        self.nEvent = None
+        self.nMaxJet   = None
+        self.nMaxPart  = None
+
+        self.load_data(path, batch_size,rank,size)
+        self.y = np.identity(2)[self.y.astype(np.int32)]
+        self.num_pad = 0
+        self.num_feat = self.X.shape[2] + self.num_pad #missing inputs
+        self.num_classes = self.y.shape[1]
+        self.steps_per_epoch = None #will pass none, otherwise needs to add repeat to tf data
+        self.files = [path]
+
+    def load_data(self,path, batch_size=512,rank=0,size=1,nevts=None):
+        # self.path = path
+        X = np.array(list(h5.File(self.path,'r')['OmniLearn/points']))
+        Y = np.array(list(h5.File(self.path,'r')['OmniLearn/pid']))
+        jet = np.array(list(h5.File(self.path,'r')['OmniLearn/jets_processed']))
+ 
+        self.nEvent = X.shape[0]
+        self.nMaxJet = X.shape[1]
+        self.nMaxPart = X.shape[2]
+
+        Y[Y != 5] = 0
+        Y[Y == 5] = 1
+
+        X = X.reshape(-1, X.shape[2], X.shape[3])
+        Y = Y.reshape(-1)
+        jet = jet.reshape(-1, jet.shape[2])
+
+        self.X = X[rank:nevts:size]
+        self.y = Y[rank:nevts:size]
+        self.jet = jet[rank:nevts:size]
+        self.mask = self.X[:,:,2]!=0
+
+        # self.batch_size = batch_size
+        self.nevts = X.shape[0] if nevts is None else nevts
+        self.num_part = self.X.shape[1]
+        self.num_jet = self.jet.shape[1] 
+
+
+    def data_from_file(self,file_path, preprocess=False):
+        with h5.File(file_path, 'r') as file:
+            X = np.array(list(file['OmniLearn/points']))
+            Y = np.array(list(file['OmniLearn/pid']))
+            jet = np.array(list(file['OmniLearn/jets_processed']))
+
+            Y[Y != 5] = 0
+            Y[Y == 5] = 1
+
+            X = X.reshape(-1, X.shape[2], X.shape[3])
+            Y = Y.reshape(-1)
+            jet = jet.reshape(-1, jet.shape[2])
+
+            data_chunk = X[:]
+            mask_chunk = data_chunk[:, :, 2] != 0
+
+            jet_chunk = jet[:]
+            label_chunk = Y[:]
+
+            if preprocess:
+                data_chunk = self.preprocess(data_chunk, mask_chunk)
+                data_chunk = self.pad(data_chunk,num_pad=self.num_pad)
+                jet_chunk = self.preprocess_jet(jet_chunk)
+
+            points_chunk = data_chunk[:, :, :2]
+
+        return [data_chunk,points_chunk,mask_chunk,jet_chunk],label_chunk
+
 class JetClassDataLoader(DataLoader):
     def __init__(self, path,
                  batch_size=512,rank=0,size=1,chunk_size=5000, **kwargs):
