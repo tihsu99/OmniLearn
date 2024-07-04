@@ -51,9 +51,9 @@ class PET(keras.Model):
         input_features = layers.Input(shape=(None, num_feat), name='input_features')
         input_points = layers.Input(shape=(None, 2), name='input_points')
         input_mask = layers.Input((None,1),name = 'input_mask')
-        input_jet = layers.Input((num_jet),name='input_jet')
-        input_label = layers.Input((num_classes),name='input_label')
-        input_time = layers.Input((1),name = 'input_time')
+        input_jet = layers.Input(((num_jet,)),name='input_jet')
+        input_label = layers.Input((num_classes,),name='input_label')
+        input_time = layers.Input((1,),name = 'input_time')
 
 
         outputs_body = self.PET_body(input_features,
@@ -68,7 +68,7 @@ class PET(keras.Model):
                                 outputs=outputs_body)
         
 
-        outputs_classifier,outputs_regressor = self.PET_classifier(outputs_body,
+        outputs_classifier,outputs_regressor, class_token  = self.PET_classifier(outputs_body,
                                                                    input_jet,
                                                                    num_class_layers=num_class_layers,
                                                                    num_jet=num_jet,
@@ -84,6 +84,7 @@ class PET(keras.Model):
                                                simple=simple,
                                                )
 
+
         self.classifier_head = keras.Model(inputs=[outputs_body,input_jet],
                                            outputs=[outputs_classifier,outputs_regressor])
         self.generator_head = keras.Model(inputs=[outputs_body,input_jet,
@@ -92,7 +93,7 @@ class PET(keras.Model):
         
         self.classifier = keras.Model(inputs=[input_features,input_points,input_mask,
                                               input_jet,input_time],
-                                      outputs=[outputs_classifier,outputs_regressor])
+                                      outputs=[outputs_classifier,outputs_regressor, class_token])
         self.generator = keras.Model(inputs=[input_features,input_points,input_mask,
                                              input_jet,input_time,input_label],
                                      outputs=outputs_generator)
@@ -132,6 +133,9 @@ class PET(keras.Model):
             return self.generator(x)
         else:
             return self.classifier(x)
+
+#    def return_embed(self, x):
+#      return self.PET_encoder(x)
 
     def train_step(self, inputs):
         x,y = inputs
@@ -422,7 +426,7 @@ class PET(keras.Model):
             outputs_pred = layers.Dense(self.num_classes,activation=self.class_activation)(class_tokens[:,0])
             outputs_mse = layers.Dense(num_jet)(class_tokens[:,0])
 
-        return outputs_pred,outputs_mse
+        return outputs_pred,outputs_mse, class_tokens
 
 
     def PET_generator(
@@ -529,7 +533,11 @@ def FourierProjection(x,projection_dim,num_embed=64):
 
 
     angle = x*freq*1000.0
-    embedding = tf.concat([tf.math.sin(angle),tf.math.cos(angle)],-1)*x
+
+    sin_part = tf.math.sin(angle)
+    cos_part = tf.math.cos(angle)
+
+    embedding = tf.concat([sin_part, cos_part],-1)*x
     embedding = layers.Dense(2*projection_dim,activation="swish",use_bias=False)(embedding)
     embedding = layers.Dense(projection_dim,activation="swish",use_bias=False)(embedding)
     
