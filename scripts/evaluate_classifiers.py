@@ -12,6 +12,8 @@ from PET import PET
 import utils
 from omnifold import Classifier
 
+hvd.init()
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Evaluate performance metrics for trained models on various datasets.")
     parser.add_argument("--dataset", type=str, default="top", help="Folder containing input files")
@@ -80,6 +82,11 @@ def get_data_info(flags):
                                   flags.batch,rank = hvd.rank(),size = hvd.size())
         threshold = [0.3,0.5]
         folder_name = 'QG'
+
+    elif flags.dataset == 'Delphes':
+        test   = utils.DelphesDataLoader(os.path.join(flags.folder, 'Test',  'TestDataset_For_haa_ma40.h5'),   flags.batch, hvd.rank(), hvd.size())
+        threshold = [0.3, 0.5]
+        folder_name = 'Test'
 
     elif flags.dataset == 'atlas':
         test = utils.AtlasDataLoader(os.path.join(flags.folder,'ATLASTOP', 'test_atlas.h5'),
@@ -155,6 +162,8 @@ def load_or_evaluate_model(flags, test,folder_name):
         
         y = hvd.allgather(tf.constant(y)).numpy()
         pred = hvd.allgather(tf.constant(model.predict(X, verbose=hvd.rank() == 0)[0])).numpy()
+        class_token = hvd.allgather(tf.constant(model.predict(X, verbose=hvd.rank() == 0)[2])).numpy()
+        print(np.shape(class_token))
         if hvd.rank()==0:
             if not os.path.exists(os.path.join(flags.folder,folder_name,'npy')):
                 os.makedirs(os.path.join(flags.folder,folder_name,'npy'))

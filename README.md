@@ -270,3 +270,11 @@ python evaluate_classifiers.py --batch 1000 --local --layer_scale --dataset YOUR
 ```
 
 after including your dataloader in the script. For data generation, you can create your scripts based on the evaluation scripts for jetnet to accomplish the sampling. Additional plotting functionality can be used to compare generated samples with data. Look at the evaluation scripts for the LHCO application for more details.
+
+#######################################
+# For SPANet study
+## Predict
+Predict the OmniLearn output, including Embedding information. Please note that there should be `Train` and `Test` directory under `INPUTDIR`. The function would scan all the `h5` file under it and attach OmniLearn information on top of the original information.
+```
+python3 predict_OmniLearn.py --indir [INPUTDIR] --outdir [OUTDIR] --batch 1000 --local --layer_scale --dataset Delphes --fine_tune
+```

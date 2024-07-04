@@ -14,7 +14,7 @@ from PET import PET
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
+hvd.init()
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Train the PET model on different datasets.")
@@ -62,6 +62,9 @@ def get_data_loader(flags):
                                          flags.batch,hvd.rank(),hvd.size())
         val = utils.JetClassDataLoader(os.path.join(flags.folder,'JetClass','val'),
                                         flags.batch,hvd.rank(),hvd.size())
+    elif flags.dataset == 'Delphes':
+        train = utils.DelphesDataLoader(os.path.join(flags.folder, 'Train', 'TrainDataset_For_haa_ma40.h5'), flags.batch, hvd.rank(), hvd.size())
+        val   = utils.DelphesDataLoader(os.path.join(flags.folder, 'Test',  'TestDataset_For_haa_ma40.h5'),   flags.batch, hvd.rank(), hvd.size())
 
     return train,val
 

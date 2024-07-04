@@ -6,7 +6,6 @@ import plot_utils
 
 plot_utils.SetStyle()
 
-
 def parse_options():
     """Parse command line options."""
     from argparse import ArgumentParser
@@ -15,6 +14,7 @@ def parse_options():
     parser.add_argument("--folder", type=str, default="/pscratch/sd/v/vmikuni/PET/", help="Folder containing input files")
     parser.add_argument("--plot_folder", type=str, default="../plots", help="Folder to save the outputs")
     parser.add_argument("--n_bins", type=int, default=50, help="Number of bins for the histograms")
+    parser.add_argument("--fin", type=str)
     return parser.parse_args()
 
 def load_data(flags):
@@ -50,7 +50,9 @@ def load_data(flags):
     elif flags.dataset == 'omnifold':
         test = utils.OmniDataLoader(os.path.join(flags.folder,'OmniFold','test_pythia.h5'))
     elif flags.dataset == 'lhco':
-        test = utils.LHCODataLoader(os.path.join(flags.folder,'LHCO', 'val_background_SB.h5'))        
+        test = utils.LHCODataLoader(os.path.join(flags.folder,'LHCO', 'val_background_SB.h5'))       
+    elif flags.dataset == 'Delphes':
+        test = utils.DelphesDataLoader(flags.fin)
     else:
         raise ValueError("Unknown dataset specified or file name not provided")
 
@@ -71,7 +73,7 @@ def process_particles(test):
 def main():
     flags = parse_options()
     plot_utils.SetStyle()
-    
+    os.system('mkdir -p {}'.format(flags.plot_folder)) 
     test = load_data(flags)
 
     parts, jets = process_particles(test)
@@ -82,8 +84,13 @@ def main():
     
     print('jets mean',np.mean(jets,0))
     print('jets std',np.std(jets,0))
+
+        
+    mask = jets[:, 0] != 0
+
     for feat in range(len(test.jet_names)):
         flat = jets[:, feat]
+        flat = flat[mask]
         fig, gs, _ = plot_utils.HistRoutine({'{}'.format(flags.dataset): flat}, test.jet_names[feat], 'Normalized Events', plot_ratio=False, reference_name='{}'.format(flags.dataset))
         fig.savefig(f"{flags.plot_folder}/jets_{flags.dataset}_{feat}.pdf", bbox_inches='tight')
 

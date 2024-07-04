@@ -16,6 +16,9 @@ line_style = {
     'qg':'-',
     'cms_fine_tune':'dotted',
     'cms':'-',
+    'Delphes_fine_tune': 'dotted',
+    'Delphes': '-',
+
 
     'jetnet30_fine_tune':'dotted',
     'jetnet30':'-',
@@ -98,6 +101,8 @@ colors = {
     'atlas':'#7570b3',
     'cms_fine_tune':'#7570b3',
     'cms':'#7570b3',
+    'Delphes_fine_tune':'#7570b3',
+    'Delphes':'#7570b3',
 
     'atlas_small_fine_tune':'#7570b3',
     'atlas_small':'#7570b3',
@@ -138,7 +143,10 @@ name_translate = {
     'atlas_fine_tune':'ATLAS Top tagging (40M) OmniLearn',
     'atlas':'ATLAS Top tagging (40M)',
     'cms_fine_tune':'CMS Jets OmniLearn',
-    'cms':'CMS Jets',
+    'cms':'CMS Jets', 
+
+    'Delphes_fine_tune': 'Delphes OmniLearn',
+    'Delphes': 'Delphes',
 
     'atlas_small_fine_tune':'ATLAS Top tagging (4M) OmniLearn',
     'atlas_small':'ATLAS Top tagging (4M)',
