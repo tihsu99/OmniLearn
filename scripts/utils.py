@@ -9,7 +9,8 @@ import random
 import itertools
 import pickle, copy
 from scipy.stats import norm
-import horovod.tensorflow.keras as hvd
+# import horovod.tensorflow.keras as hvd
+from dummy_hvd import hvd as hvd
 
 def setup_gpus():
     hvd.init()

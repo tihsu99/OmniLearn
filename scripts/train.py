@@ -2,7 +2,8 @@ import os
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-import horovod.tensorflow.keras as hvd
+# import horovod.tensorflow.keras as hvd
+from dummy_hvd import hvd as hvd
 import argparse
 import logging
 import pickle
