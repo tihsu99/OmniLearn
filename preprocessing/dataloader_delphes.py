@@ -177,6 +177,7 @@ def find_last_copy(seed, particle_collection):
         new_seed = particle_collection[seed.D1]
         mask = ak.where(mask, ~(new_seed.index == seed.index), mask)
         mask = ak.where(mask, new_seed.PID == seed.PID, mask)
+        mask = ak.where(mask, ~((new_seed.Status > 19) & (new_seed.Status < 30)), mask) # if daughter becomes "from hard process", do not proceed
         search = ak.any(ak.flatten(mask))
         seed = ak.where(mask, new_seed, seed)
         print("[GenParticle] Finding last copy -> remaining: {}/{}".format(ak.sum(ak.flatten(mask)), total_count))
