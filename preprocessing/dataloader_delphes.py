@@ -250,7 +250,7 @@ def read_file(
     # later proably dict could be ak record?
     objects={k:read_fixed_length_objects(tree,*scheme[k]) for k in scheme.keys() if ((k!="event") & (k!="genparticles"))}
     objects['genpart'] = read_fixed_length_gen_objects(tree, *scheme["genparticles"], objects)
-    objects['genpart'][1]['genmatched_index'] = find_matching(objects, 0.1)
+    objects['genpart'][1]['genmatched_index'] = find_matching(objects, dr_cut_lepton = 0.1, dr_cut_jet = 0.3)
     genmatched_index_np = np.expand_dims(ak.to_numpy(_pad(objects['genpart'][1]['genmatched_index'], maxlen = scheme['genparticles'][0], value=-1)), axis = -1)
     objects['genpart'][0] = np.concatenate((objects['genpart'][0], genmatched_index_np), axis = -1)
 

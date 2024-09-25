@@ -36,7 +36,7 @@ def match_object(candidate, target, dr_cut):
     return -1  
   
 
-def find_matching(objects, dr_cut):
+def find_matching(objects, dr_cut_lepton, dr_cut_jet):
 
   genParticles = define_Lorentz_vector(objects["genpart"], 'genpart')
   electrons    = define_Lorentz_vector(objects["els"], 'el')
@@ -61,11 +61,11 @@ def find_matching(objects, dr_cut):
      elif ((abs(genPart.PID) == 12) or (abs(genPart.PID == 14)) or (abs(genPart.PID == 16))): # Neutrino case
        builder.append(-1)
      elif (abs(genPart.PID) == 11): # Electron case
-       builder.append(match_object(genPart, electron_Event, dr_cut))
+       builder.append(match_object(genPart, electron_Event, dr_cut_lepton))
      elif (abs(genPart.PID) == 13): # Muon case
-       builder.append(match_object(genPart, muon_Event, dr_cut))
+       builder.append(match_object(genPart, muon_Event, dr_cut_lepton))
      else: # Jet case
-       builder.append(match_object(genPart, jet_Event, dr_cut))
+       builder.append(match_object(genPart, jet_Event, dr_cut_jet))
    builder.end_list()
    #print('================')
    #print('PID', genPart_Event.PID)
