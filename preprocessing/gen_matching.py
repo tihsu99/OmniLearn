@@ -48,7 +48,6 @@ def find_matching(objects, dr_cut):
   builder = ak.ArrayBuilder()
 
   for iEvent in range(len(genParticles)):
-   print('Progress', iEvent, '/', len(genParticles))
    builder.begin_list()
    genPart_Event  = genParticles[iEvent]
    electron_Event = electrons[iEvent]

@@ -231,7 +231,7 @@ def read_file(
         mask = cut(p4, particles)
         p4   = p4[mask]
         table_HardProcess = particles[mask]
-        table_HardProcess_isLastCopy = table_HardProcess # find_last_copy(table_HardProcess, particles) TODO: Debugging
+        table_HardProcess_isLastCopy = find_last_copy(table_HardProcess, particles)
         ret_dict = {k:v(p4, table_HardProcess_isLastCopy) for k,v in s_dict.items()}
         ret_np   = np.stack([ak.to_numpy(_pad(ret_dict[n], maxlen=max_len)) for n in o_list], axis=-1)
         return [ret_np, ret_dict] # Need to modify later to add genmatching info. Thus make it list instead of tuple.
