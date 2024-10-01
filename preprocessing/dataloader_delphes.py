@@ -1,8 +1,10 @@
 import numpy as np
 import awkward as ak
 import uproot
+from gen_matching import find_matching
 import vector
 vector.register_awkward()
+
 # try to directly read delphes root files and export event level variables.
 SCHEMA={
     "jets":[ # could be any object name
@@ -140,14 +142,14 @@ SCHEMA={
             "genpart_pt":lambda p,v:   v['pt'],
             "genpart_eta": lambda p,v: v['eta'],
             "genpart_phi": lambda p,v: v['phi'],
-            "genpart_mass": lambda p,v: v['mass'],
+            "genpart_m": lambda p,v: v['mass'],
             "genpart_index": lambda p,v: v['index'], # Define in other place
             "genpart_M1":  lambda p,v:  v['M1'],
             "genpart_M2":  lambda p,v:  v['M2'],
             "genpart_PID": lambda p,v:  v['PID'],
             "genpart_Status": lambda p,v: v['Status']
         }, # prepare the output variables
-       ["genpart_pt", "genpart_eta", "genpart_phi", "genpart_mass", "genpart_index", "genpart_M1", "genpart_M2", "genpart_PID", "genpart_Status"]# the actual saved one and the order
+       ["genpart_pt", "genpart_eta", "genpart_phi", "genpart_m", "genpart_index", "genpart_M1", "genpart_M2", "genpart_PID", "genpart_Status"]# the actual saved one and the order
      ],
     "event":[ # hardcorded name. not change
         {
@@ -177,6 +179,7 @@ def find_last_copy(seed, particle_collection):
         new_seed = particle_collection[seed.D1]
         mask = ak.where(mask, ~(new_seed.index == seed.index), mask)
         mask = ak.where(mask, new_seed.PID == seed.PID, mask)
+        mask = ak.where(mask, ~((new_seed.Status > 19) & (new_seed.Status < 30)), mask) # if daughter becomes "from hard process", do not proceed
         search = ak.any(ak.flatten(mask))
         seed = ak.where(mask, new_seed, seed)
         print("[GenParticle] Finding last copy -> remaining: {}/{}".format(ak.sum(ak.flatten(mask)), total_count))
@@ -184,6 +187,8 @@ def find_last_copy(seed, particle_collection):
     seed["M2"] = M2_base
     seed["Status"] = Status_base
     return seed
+
+
 
 def read_file(
         filepath,
@@ -229,7 +234,7 @@ def read_file(
         table_HardProcess_isLastCopy = find_last_copy(table_HardProcess, particles)
         ret_dict = {k:v(p4, table_HardProcess_isLastCopy) for k,v in s_dict.items()}
         ret_np   = np.stack([ak.to_numpy(_pad(ret_dict[n], maxlen=max_len)) for n in o_list], axis=-1)
-        return ret_np, ret_dict
+        return [ret_np, ret_dict] # Need to modify later to add genmatching info. Thus make it list instead of tuple.
 
     def read_event(tree,objects,i_dict,cut,s_dict,o_list):
         table2=tree.arrays(i_dict.keys(),aliases=i_dict)
@@ -240,16 +245,18 @@ def read_file(
         return ret_np,ret_dict
         
 
-    tree = uproot.open(filepath)['Delphes'] # not load all the branches.
+    tree = uproot.open(filepath)['Delphes'] # not load all the branches. 
     
     # later proably dict could be ak record?
     objects={k:read_fixed_length_objects(tree,*scheme[k]) for k in scheme.keys() if ((k!="event") & (k!="genparticles"))}
-    gen_objects = read_fixed_length_gen_objects(tree, *scheme["genparticles"], objects)
+    objects['genpart'] = read_fixed_length_gen_objects(tree, *scheme["genparticles"], objects)
+    objects['genpart'][1]['genmatched_index'] = find_matching(objects, dr_cut_lepton = 0.1, dr_cut_jet = 0.3)
+    genmatched_index_np = np.expand_dims(ak.to_numpy(_pad(objects['genpart'][1]['genmatched_index'], maxlen = scheme['genparticles'][0], value=-1)), axis = -1)
+    objects['genpart'][0] = np.concatenate((objects['genpart'][0], genmatched_index_np), axis = -1)
 
     event=read_event(tree,objects,*scheme["event"])
     
     x_objects={k:object[0] for k,object in objects.items()}
-    x_objects['genpart'] = gen_objects[0]
     x_event=event[0]
     
     y=None # remain for later usage
