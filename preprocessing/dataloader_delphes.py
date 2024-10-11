@@ -8,7 +8,7 @@ vector.register_awkward()
 # try to directly read delphes root files and export event level variables.
 SCHEMA={
     "jets":[ # could be any object name
-        4, # how many?
+        10, # how many?
         {
             'pt':'Jet/Jet.PT',
             'eta':'Jet/Jet.Eta',
