@@ -36,12 +36,13 @@ def match_object(candidate, target, dr_cut):
     return -1  
   
 
-def find_matching(objects, dr_cut_lepton, dr_cut_jet):
+def find_matching(objects, dr_cut_lepton, dr_cut_jet, schema):
 
   genParticles = define_Lorentz_vector(objects["genpart"], 'genpart')
   electrons    = define_Lorentz_vector(objects["els"], 'el')
   muons        = define_Lorentz_vector(objects["mus"], 'mu')
   jets         = define_Lorentz_vector(objects["jets"], 'jet')
+  photons      = define_Lorentz_vector(objects["phs"], 'ph')
 
   genParticles["matched_index"] = ak.ones_like(genParticles["idx"]) * -99
 
@@ -53,6 +54,7 @@ def find_matching(objects, dr_cut_lepton, dr_cut_jet):
    electron_Event = electrons[iEvent]
    muon_Event     = muons[iEvent] 
    jet_Event      = jets[iEvent]
+   photon_Event   = photons[iEvent]
   
    for iPart in range(len(genPart_Event)):
      genPart = genPart_Event[iPart]
@@ -61,11 +63,17 @@ def find_matching(objects, dr_cut_lepton, dr_cut_jet):
      elif ((abs(genPart.PID) == 12) or (abs(genPart.PID == 14)) or (abs(genPart.PID == 16))): # Neutrino case
        builder.append(-1)
      elif (abs(genPart.PID) == 11): # Electron case
-       builder.append(match_object(genPart, electron_Event, dr_cut_lepton))
+       match_index = match_object(genPart, electron_Event, dr_cut_lepton)
+       builder.append(-1) if (match_index > (schema["els"][0] - 1)) else builder.append(match_index)
      elif (abs(genPart.PID) == 13): # Muon case
-       builder.append(match_object(genPart, muon_Event, dr_cut_lepton))
+       match_index = match_object(genPart, muon_Event, dr_cut_lepton)
+       builder.append(-1) if (match_index > (schema["mus"][0] - 1)) else builder.append(match_index)
+     elif (abs(genPart.PID) == 22): # Photon case
+       match_index = match_object(genPart, photon_Event, dr_cut_lepton)
+       builder.append(-1) if (match_index > (schema["phs"][0] - 1)) else builder.append(match_index)
      else: # Jet case
-       builder.append(match_object(genPart, jet_Event, dr_cut_jet))
+       match_index = match_object(genPart, jet_Event, dr_cut_jet)
+       builder.append(-1) if (match_index > (schema["jets"][0] - 1)) else builder.append(match_index)
    builder.end_list()
    #print('================')
    #print('PID', genPart_Event.PID)
