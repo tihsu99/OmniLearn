@@ -43,6 +43,7 @@ def find_matching(objects, dr_cut_lepton, dr_cut_jet, schema):
   muons        = define_Lorentz_vector(objects["mus"], 'mu')
   jets         = define_Lorentz_vector(objects["jets"], 'jet')
   photons      = define_Lorentz_vector(objects["phs"], 'ph')
+  taus         = define_Lorentz_vector(objects["tas"], 'ta')
 
   genParticles["matched_index"] = ak.ones_like(genParticles["idx"]) * -99
 
@@ -55,7 +56,8 @@ def find_matching(objects, dr_cut_lepton, dr_cut_jet, schema):
    muon_Event     = muons[iEvent] 
    jet_Event      = jets[iEvent]
    photon_Event   = photons[iEvent]
-  
+   tau_Event      = taus[iEvent]
+
    for iPart in range(len(genPart_Event)):
      genPart = genPart_Event[iPart]
      if not (genPart.Status == 23): # Not outgoing products
@@ -68,8 +70,8 @@ def find_matching(objects, dr_cut_lepton, dr_cut_jet, schema):
      elif (abs(genPart.PID) == 13): # Muon case
        match_index = match_object(genPart, muon_Event, dr_cut_lepton)
        builder.append(-1) if (match_index > (schema["mus"][0] - 1)) else builder.append(match_index)
-     elif (abs(genPart.PID) == 15): # Muon case
-       match_index = match_object(genPart, muon_Event, dr_cut_lepton)
+     elif (abs(genPart.PID) == 15): # Tau case
+       match_index = match_object(genPart, tau_Event, dr_cut_jet)
        builder.append(-1) if (match_index > (schema["tas"][0] - 1)) else builder.append(match_index)
      elif (abs(genPart.PID) == 22): # Photon case
        match_index = match_object(genPart, photon_Event, dr_cut_lepton)
