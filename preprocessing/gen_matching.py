@@ -38,7 +38,7 @@ def match_object(candidate, target, dr_cut):
 
 def find_matching(objects, dr_cut_lepton, dr_cut_jet, schema):
 
-  genParticles = define_Lorentz_vector(objects["genpart"], 'genpart')
+  genParticles = define_Lorentz_vector(objects["genpart_lastcopy"], 'genpart')
   electrons    = define_Lorentz_vector(objects["els"], 'el')
   muons        = define_Lorentz_vector(objects["mus"], 'mu')
   jets         = define_Lorentz_vector(objects["jets"], 'jet')
@@ -68,6 +68,9 @@ def find_matching(objects, dr_cut_lepton, dr_cut_jet, schema):
      elif (abs(genPart.PID) == 13): # Muon case
        match_index = match_object(genPart, muon_Event, dr_cut_lepton)
        builder.append(-1) if (match_index > (schema["mus"][0] - 1)) else builder.append(match_index)
+     elif (abs(genPart.PID) == 15): # Muon case
+       match_index = match_object(genPart, muon_Event, dr_cut_lepton)
+       builder.append(-1) if (match_index > (schema["tas"][0] - 1)) else builder.append(match_index)
      elif (abs(genPart.PID) == 22): # Photon case
        match_index = match_object(genPart, photon_Event, dr_cut_lepton)
        builder.append(-1) if (match_index > (schema["phs"][0] - 1)) else builder.append(match_index)

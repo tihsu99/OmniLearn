@@ -4,6 +4,7 @@ import uproot
 from gen_matching import find_matching
 import vector
 vector.register_awkward()
+import gc
 
 # try to directly read delphes root files and export event level variables.
 SCHEMA={
@@ -17,10 +18,11 @@ SCHEMA={
         }, # the 4-vector input
         {
             "BTag":"Jet/Jet.BTag",
+            "tauID":"Jet/Jet.TauTag",
             "NCharged":"Jet/Jet.NCharged",
             "Flavor":"Jet/Jet.Flavor"
         }, # the aux input
-        lambda p,v:p.pt>10, # the cut
+        lambda p,v: (p.pt>10) & ~(v["tauID"]==1), # the cut
         {
             "jet_pt":lambda p,v:p.pt,
             "jet_eta":lambda p,v:p.eta,
@@ -57,7 +59,7 @@ SCHEMA={
             'pt':'Electron/Electron.PT',
             'eta':'Electron/Electron.Eta',
             'phi':'Electron/Electron.Phi',
-            'mass':"Electron/Electron.PT*0.511E-3"
+            'mass':"Electron/Electron.PT * 0.0 + 0.511E-3"
         }, # the 4-vector input
         {
             "charge":"Electron/Electron.Charge",
@@ -78,7 +80,7 @@ SCHEMA={
             'pt':'Muon/Muon.PT',
             'eta':'Muon/Muon.Eta',
             'phi':'Muon/Muon.Phi',
-            'mass':"Muon/Muon.PT*105.66E-3"
+            'mass':"Muon/Muon.PT * 0.0 + 105.66E-3"
         }, # the 4-vector input
         {
             "charge":"Muon/Muon.Charge",
@@ -104,6 +106,7 @@ SCHEMA={
         {
             "tauID":"Jet/Jet.TauTag",
             "charge":"Jet/Jet.Charge",
+            "NCharged":"Jet/Jet.NCharged",
         }, # the aux input
         lambda p,v:v["tauID"]==1, # the cut
         {
@@ -112,11 +115,12 @@ SCHEMA={
             "ta_phi":lambda p,v:p.phi,
             "ta_m":lambda p,v:p.mass,
             "ta_ch":lambda p,v:v["charge"],
+            "ta_npart":lambda p,v:v["NCharged"],
         }, # prepare the output variables
-        ["ta_pt","ta_eta","ta_phi","ta_m","ta_ch"], # the actual saved one and the order
+        ["ta_pt","ta_eta","ta_phi","ta_m","ta_ch", "ta_npart"], # the actual saved one and the order
     ],
     "genparticles":[
-       15,
+       18,
        {
          'pt': 'Particle/Particle.PT',
          'eta': 'Particle/Particle.Eta',
@@ -167,25 +171,27 @@ SCHEMA={
     ], 
 }
 
+
 def find_last_copy(seed, particle_collection):
-    PID_base = seed.PID
-    M1_base = seed.M1
-    M2_base = seed.M2
-    Status_base = seed.Status
+    PID_base, M1_base, M2_base, Status_base = seed.PID, seed.M1, seed.M2, seed.Status
     search = True
-    mask = (seed.PID==seed.PID)
+    mask = (seed.PID == seed.PID)
     total_count = ak.sum(ak.flatten(mask))
+    
     while search:
+        # Slice out only necessary parts to reduce memory footprint
         new_seed = particle_collection[seed.D1]
-        mask = ak.where(mask, ~(new_seed.index == seed.index), mask)
-        mask = ak.where(mask, new_seed.PID == seed.PID, mask)
-        mask = ak.where(mask, ~((new_seed.Status > 19) & (new_seed.Status < 30)), mask) # if daughter becomes "from hard process", do not proceed
+        
+        # Update mask in place to avoid excessive temporary arrays
+        mask = mask & (~(new_seed.index == seed.index)) & (new_seed.PID == seed.PID) & (~((new_seed.Status > 19) & (new_seed.Status < 30)))
         search = ak.any(ak.flatten(mask))
         seed = ak.where(mask, new_seed, seed)
-        print("[GenParticle] Finding last copy -> remaining: {}/{}".format(ak.sum(ak.flatten(mask)), total_count))
-    seed["M1"] = M1_base
-    seed["M2"] = M2_base
-    seed["Status"] = Status_base
+        # Optional: Print status to monitor loop, can be removed for performance
+        print(f"[GenParticle] Finding last copy -> remaining: {ak.sum(ak.flatten(mask))}/{total_count}")
+        del new_seed
+        gc.collect()
+    # Update attributes in place to reduce memory allocation
+    seed["M1"], seed["M2"], seed["Status"] = M1_base, M2_base, Status_base
     return seed
 
 
@@ -222,17 +228,20 @@ def read_file(
         ret_np=np.stack([ak.to_numpy(_pad(ret_dict[n], maxlen=max_len)) for n in o_list], axis=-1)
         return ret_np,ret_dict
 
-    def read_fixed_length_gen_objects(tree, max_len, v_dict, a_dict, cut, s_dict, o_list, matched_object):
+    def read_fixed_length_gen_objects(tree, max_len, v_dict, a_dict, cut, s_dict, o_list, matched_object, find_LastCopy = False):
         table1 = tree.arrays(v_dict.values())
         p4  = vector.zip({k: table1[v] for k, v in v_dict.items()})
         table2 = tree.arrays(a_dict.values())
         particles = ak.zip({k: table2[v] for k, v in a_dict.items()})
-        particles["index"] = ak.local_index(particles) 
+        particles["index"] = ak.local_index(particles)
+        particles["nMother"]  = ak.unflatten(ak.num(particles["M1"][particles["M1"] > -1]) + ak.num(particles["M2"][particles["M2"] > -1]), counts = 1)
+        particles["Status"] = ak.where(((particles["Status"][particles["M1"]] == 62) | (particles["Status"][particles["M1"]] == 52) | (particles["Status"][particles["M1"]] == 22)) & (particles["Status"] == 1), 23, particles["Status"]) # If particle from hard process becomes the last copy, its status will be 1 instead of 23, map it back to 23 to have a consistent label.
         mask = cut(p4, particles)
         p4   = p4[mask]
         table_HardProcess = particles[mask]
-        table_HardProcess_isLastCopy = find_last_copy(table_HardProcess, particles)
-        ret_dict = {k:v(p4, table_HardProcess_isLastCopy) for k,v in s_dict.items()}
+        if find_LastCopy:
+          table_HardProcess = find_last_copy(table_HardProcess, particles)
+        ret_dict = {k:v(p4, table_HardProcess) for k,v in s_dict.items()}
         ret_np   = np.stack([ak.to_numpy(_pad(ret_dict[n], maxlen=max_len)) for n in o_list], axis=-1)
         return [ret_np, ret_dict] # Need to modify later to add genmatching info. Thus make it list instead of tuple.
 
@@ -250,9 +259,17 @@ def read_file(
     # later proably dict could be ak record?
     objects={k:read_fixed_length_objects(tree,*scheme[k]) for k in scheme.keys() if ((k!="event") & (k!="genparticles"))}
     objects['genpart'] = read_fixed_length_gen_objects(tree, *scheme["genparticles"], objects)
+    objects['genpart_lastcopy'] = read_fixed_length_gen_objects(tree, *scheme["genparticles"], objects, find_LastCopy = True)
+
     objects['genpart'][1]['genmatched_index'] = find_matching(objects, dr_cut_lepton = 0.1, dr_cut_jet = 0.3, schema=SCHEMA)
     genmatched_index_np = np.expand_dims(ak.to_numpy(_pad(objects['genpart'][1]['genmatched_index'], maxlen = scheme['genparticles'][0], value=-1)), axis = -1)
+
+    print(objects['genpart'][0][:,:,4][0])
+    objects['genpart'][0][:,:,4] = objects['genpart_lastcopy'][0][:,:,4]
+    print(objects['genpart'][0][:,:,4][0])
+
     objects['genpart'][0] = np.concatenate((objects['genpart'][0], genmatched_index_np), axis = -1)
+    #del objects['genpart_lastcopy']
 
     event=read_event(tree,objects,*scheme["event"])
     
