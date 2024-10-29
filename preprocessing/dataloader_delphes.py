@@ -234,7 +234,6 @@ def read_file(
         table2 = tree.arrays(a_dict.values())
         particles = ak.zip({k: table2[v] for k, v in a_dict.items()})
         particles["index"] = ak.local_index(particles)
-        particles["nMother"]  = ak.unflatten(ak.num(particles["M1"][particles["M1"] > -1]) + ak.num(particles["M2"][particles["M2"] > -1]), counts = 1)
         particles["Status"] = ak.where(((particles["Status"][particles["M1"]] == 62) | (particles["Status"][particles["M1"]] == 52) | (particles["Status"][particles["M1"]] == 22)) & (particles["Status"] == 1), 23, particles["Status"]) # If particle from hard process becomes the last copy, its status will be 1 instead of 23, map it back to 23 to have a consistent label.
         mask = cut(p4, particles)
         p4   = p4[mask]
